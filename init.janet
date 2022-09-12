@@ -50,11 +50,11 @@
 (defn- get-tree-entires
   "Recursively returns array of tables with specified keys."
   [res tree-json]
-  (let [{"id" i "output" o "nodes" n} (->> (pairs tree-json)
+  (let [{"id" i "output" o "nodes" n "type" t} (->> (pairs tree-json)
                                                     filter-keys
                                                     array-of-tuples->table)
         nodes-res (mapcat (fn [tree-json] (get-tree-entires @[] tree-json)) n)]
-    (array/concat (array/push res @{:id i :output o}) nodes-res)))
+    (array/concat (array/push res @{:id i :output o :type t}) nodes-res)))
 
 (defn- filter-workspaces [t]
   (filter (fn[t] (and (= (get t :type) "workspace")
@@ -66,9 +66,10 @@
   (->> (get-tree-string!)
        (json/decode)
        (get-tree-entires @[])
-       (filter-workspaces)
-       (json/encode)
-       (save-layout! "/tmp/i3-layout")))
+       # (filter-workspaces)
+       # (json/encode)
+       # (save-layout! "/tmp/i3-layout")
+       ))
 
 (defn apply-workspace-position [{"id" id "output" output}]
   (let [p (os/spawn @("i3-msg" (string "[con_id=" id "]"
@@ -85,6 +86,8 @@
         # TODO: check if maping with do is a way to go 
        (map (fn [v] (do (apply-workspace-position v))))))
 
+(save!)
+(load!)
 
 (defn main [& args]
     # You can also get command-line arguments through (dyn :args)
