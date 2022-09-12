@@ -24,8 +24,9 @@
     (os/shell (string "touch " file-path))
     (write-to-file! file-path buf)))
 
-(defn get-tree-string! []
+(defn get-tree-string!
   "Spawns i3-msg get_tree process and returns tree as a string."
+  []
   (let [p (os/spawn @("i3-msg" "-t" "get_tree")
                     :p
                     {:in :pipe :out :pipe})
@@ -49,14 +50,14 @@
 (defn- get-tree-entires
   "Recursively returns array of tables with specified keys."
   [res tree-json]
-  (let [{"id" i "type" t "output" o "nodes" n} (->> (pairs tree-json)
+  (let [{"id" i "output" o "nodes" n} (->> (pairs tree-json)
                                                     filter-keys
                                                     array-of-tuples->table)
         nodes-res (mapcat (fn [tree-json] (get-tree-entires @[] tree-json)) n)]
-    (array/concat (array/push res @{:id i :type t :output o}) nodes-res)))
+    (array/concat (array/push res @{:id i :output o}) nodes-res)))
 
-(defn- filter-containers [t]
-  (filter (fn[t] (and (= (get t :type) "con")
+(defn- filter-workspaces [t]
+  (filter (fn[t] (and (= (get t :type) "workspace")
                       (not= (get t  :output) "__i3"))) t))
 
 (defn save!
@@ -65,21 +66,25 @@
   (->> (get-tree-string!)
        (json/decode)
        (get-tree-entires @[])
-       (filter-containers)
+       (filter-workspaces)
        (json/encode)
        (save-layout! "/tmp/i3-layout")))
 
+(defn apply-workspace-position [{"id" id "output" output}]
+  (let [p (os/spawn @("i3-msg" (string "[con_id=" id "]"
+                                       " move workspace to output "
+                                       output))
+                    :p)]
+    (:wait p)))
 
-# i3-msg '[con_id=93910984132864] move container to output eDP-1'
 (defn load!
   "Loades and parses a layout from file."
   [] 
-  (-> (read-from-file! "/tmp/i3-layout")
-      (json/decode)))
+  (->> (read-from-file! "/tmp/i3-layout")
+       (json/decode)
+        # TODO: check if maping with do is a way to go 
+       (map (fn [v] (do (apply-workspace-position v))))))
 
-
-(comment (save!))
-(comment (load!))
 
 (defn main [& args]
     # You can also get command-line arguments through (dyn :args)
