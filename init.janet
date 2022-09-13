@@ -42,7 +42,7 @@
        (map tuple->table)
        (apply merge)))
 
-(def- tree-keys ["id" "type" "nodes" "output"])
+(def- tree-keys ["id" "type" "nodes" "output" "name"])
 
 (defn- filter-keys [aot]
   (filter (fn [(k _)] (not= nil (index-of k tree-keys))) aot))
@@ -50,16 +50,32 @@
 (defn- get-tree-entires
   "Recursively returns array of tables with specified keys."
   [res tree-json]
-  (let [{"id" i "output" o "nodes" n "type" t} (->> (pairs tree-json)
-                                                    filter-keys
-                                                    array-of-tuples->table)
-        nodes-res (mapcat (fn [tree-json] (get-tree-entires @[] tree-json)) n)]
-    (array/concat (array/push res @{:id i :output o :type t}) nodes-res)))
+  (let [node (->> (pairs tree-json)
+                  filter-keys
+                  array-of-tuples->table)]
+    (cond 
+      (= (get node "type") "root") (map (fn [tree-json] (get-tree-entires @[] tree-json))
+                                     (get node "nodes"))
+      (= (get node "type") "output") (mapcat (fn [tree-json] (get-tree-entires @[] tree-json))
+                                          (get node "nodes"))
+      (and (= (get node "type") "con")
+           (pos? (length (get node "nodes")))) (map (fn [tree-json] (get-tree-entires @[] tree-json))
+                                                    (get node "nodes"))
+      (= (get node "type") "workspace") {:name (get node "id")
+                                         :output (get node "output")
+                                         :workspaces (map (fn [tree-json] (get-tree-entires @[] tree-json))
+                                                          (get node "nodes"))}
+      (and (= (get node "type") "con")
+           (zero? (length (get node "nodes")))) @{:id (get node "id") }
+      res
+      )
+    ))
 
 (defn- filter-workspaces [t]
-  (filter (fn[t] (and (= (get t :type) "workspace")
+  (filter (fn[t] (and (= (get t :type) "con")
                       (not= (get t  :output) "__i3"))) t))
 
+# container => workspace => [containers]
 (defn save!
   "Parses and saves layout to file."
   []
@@ -86,8 +102,8 @@
         # TODO: check if maping with do is a way to go 
        (map (fn [v] (do (apply-workspace-position v))))))
 
-(save!)
-(load!)
+(comment (save!)
+         (load!))
 
 (defn main [& args]
     # You can also get command-line arguments through (dyn :args)
