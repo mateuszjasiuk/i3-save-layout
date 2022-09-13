@@ -56,20 +56,22 @@
     (cond 
       (= (get node "type") "root") (map (fn [tree-json] (get-tree-entires @[] tree-json))
                                      (get node "nodes"))
-      (= (get node "type") "output") (mapcat (fn [tree-json] (get-tree-entires @[] tree-json))
-                                          (get node "nodes"))
+      (= (get node "type") "output") {(get node "name") (mapcat (fn [tree-json] (get-tree-entires @[] tree-json))
+                                                                (get node "nodes"))}
       (and (= (get node "type") "con")
            (pos? (length (get node "nodes")))) (map (fn [tree-json] (get-tree-entires @[] tree-json))
                                                     (get node "nodes"))
-      (= (get node "type") "workspace") {:name (get node "id")
-                                         :output (get node "output")
-                                         :workspaces (map (fn [tree-json] (get-tree-entires @[] tree-json))
+      (= (get node "type") "workspace") {:id (get node "id")
+                                         # :output (get node "output")
+                                         :containers (map (fn [tree-json] (get-tree-entires @[] tree-json))
                                                           (get node "nodes"))}
       (and (= (get node "type") "con")
            (zero? (length (get node "nodes")))) @{:id (get node "id") }
       res
       )
     ))
+
+(comment (save!))
 
 (defn- filter-workspaces [t]
   (filter (fn[t] (and (= (get t :type) "con")
