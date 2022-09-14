@@ -47,65 +47,86 @@
 (defn- filter-keys [aot]
   (filter (fn [(k _)] (not= nil (index-of k tree-keys))) aot))
 
-(defn- get-tree-entires
+(defn- containers-by-workspaces
   "Recursively returns array of tables with specified keys."
   [tree-json]
   (let [node (->> (pairs tree-json)
                   filter-keys
-                  array-of-tuples->table)]
+                  array-of-tuples->table)
+        {"type" t "name" nm "nodes" no "id" id} node
+        nodes-length (length no)]
     (cond 
-      (= (get node "type") "root") (map (fn [tree-json] (get-tree-entires tree-json))
-                                     (get node "nodes"))
-      (= (get node "type") "output") {(get node "name") (mapcat (fn [tree-json] (get-tree-entires tree-json))
-                                                                (get node "nodes"))}
-      (and (= (get node "type") "con")
-           (pos? (length (get node "nodes")))) (map (fn [tree-json] (get-tree-entires tree-json))
-                                                    (get node "nodes"))
-      (= (get node "type") "workspace") {:_id (get node "id")
-                                         # :output (get node "output")
-                                         :containers (map (fn [tree-json] (get-tree-entires tree-json))
-                                                          (get node "nodes"))}
-      (and (= (get node "type") "con")
-           (zero? (length (get node "nodes")))) @{:id (get node "id") }
-      )
-    ))
+      (= t "root")
+      (map (fn [tree-json] (containers-by-workspaces tree-json)) no)
 
-(comment (save!))
+      (= t "output")
+      {(get node "name") (mapcat (fn [tree-json] (containers-by-workspaces tree-json)) no)}
 
-(defn- filter-workspaces [t]
-  (filter (fn[t] (and (= (get t :type) "con")
-                      (not= (get t  :output) "__i3"))) t))
+      (and (= t "con") (pos? nodes-length))
+      (map (fn [tree-json] (containers-by-workspaces tree-json)) no)
 
-# container => workspace => [containers]
+      (= t "workspace")
+      {:name nm
+       :containers (map (fn [tree-json] (containers-by-workspaces tree-json)) no)}
+
+      (and (= t "con") (zero? nodes-length))
+      @{:id (get node "id")}
+
+      # Any other node type
+      @[]
+      )))
+
+(defn- filter-outputs [containers]
+  (filter (fn[c] (let [output (-> c keys first)]
+                   (not= output "__i3"))) containers))
+
+
 (defn save!
   "Parses and saves layout to file."
   []
   (->> (get-tree-string!)
        (json/decode)
-       (get-tree-entires @[])
-       # (filter-workspaces)
-       # (json/encode)
-       # (save-layout! "/tmp/i3-layout")
-       ))
+       (containers-by-workspaces)
+       (filter-outputs)
+       (json/encode)
+       (save-layout! "/tmp/i3-layout")))
 
-(defn apply-workspace-position [{"id" id "output" output}]
-  (let [p (os/spawn @("i3-msg" (string "[con_id=" id "]"
+(defn attach-container-to-workspace
+  [workspace-name container-id]
+  (let [p (os/spawn @("i3-msg" (string "[con_id=" container-id "]"
+                                       " move workspace \""
+                                       workspace-name
+                                       "\""))
+                    :p)]
+    (:wait p)))
+
+(defn move-workspace-to-output
+  [workspace-name output]
+  (let [p (os/spawn @("i3-msg" (string "[workspace=" "\"" workspace-name "\"" "]"
                                        " move workspace to output "
                                        output))
                     :p)]
     (:wait p)))
+
+(defn attach-containers [entry]
+  (let [[output workspaces] (kvs entry)]
+    (map (fn [workspace]
+           (map (fn [{"id" container-id}]
+                  (do (attach-container-to-workspace (get workspace "name") container-id)
+                    (move-workspace-to-output (get workspace "name") output)))
+                (get workspace "containers"))
+           ) workspaces)))
 
 (defn load!
   "Loades and parses a layout from file."
   [] 
   (->> (read-from-file! "/tmp/i3-layout")
        (json/decode)
-        # TODO: check if maping with do is a way to go 
-       (map (fn [v] (do (apply-workspace-position v))))))
-
-(comment (save!)
-         (load!))
+       (map attach-containers)))
 
 (defn main [& args]
-    # You can also get command-line arguments through (dyn :args)
-    (print "args: " ;(interpose ", " args)))
+    (let [[_ action] (dyn :args)]
+      (case action
+        "--save" (save!)
+        "--load" (load!)
+        (print "Invalid action. Use \"--save\" or \"--load\""))))
