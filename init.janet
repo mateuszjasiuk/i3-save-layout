@@ -49,25 +49,24 @@
 
 (defn- get-tree-entires
   "Recursively returns array of tables with specified keys."
-  [res tree-json]
+  [tree-json]
   (let [node (->> (pairs tree-json)
                   filter-keys
                   array-of-tuples->table)]
     (cond 
-      (= (get node "type") "root") (map (fn [tree-json] (get-tree-entires @[] tree-json))
+      (= (get node "type") "root") (map (fn [tree-json] (get-tree-entires tree-json))
                                      (get node "nodes"))
-      (= (get node "type") "output") {(get node "name") (mapcat (fn [tree-json] (get-tree-entires @[] tree-json))
+      (= (get node "type") "output") {(get node "name") (mapcat (fn [tree-json] (get-tree-entires tree-json))
                                                                 (get node "nodes"))}
       (and (= (get node "type") "con")
-           (pos? (length (get node "nodes")))) (map (fn [tree-json] (get-tree-entires @[] tree-json))
+           (pos? (length (get node "nodes")))) (map (fn [tree-json] (get-tree-entires tree-json))
                                                     (get node "nodes"))
-      (= (get node "type") "workspace") {:id (get node "id")
+      (= (get node "type") "workspace") {:_id (get node "id")
                                          # :output (get node "output")
-                                         :containers (map (fn [tree-json] (get-tree-entires @[] tree-json))
+                                         :containers (map (fn [tree-json] (get-tree-entires tree-json))
                                                           (get node "nodes"))}
       (and (= (get node "type") "con")
            (zero? (length (get node "nodes")))) @{:id (get node "id") }
-      res
       )
     ))
 
