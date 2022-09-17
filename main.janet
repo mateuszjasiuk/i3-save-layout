@@ -67,19 +67,17 @@
 
       (= t "workspace")
       {:name nm
-       :containers (map (fn [tree-json] (containers-by-workspaces tree-json)) no)}
+       :containers (mapcat (fn [tree-json] (containers-by-workspaces tree-json)) no)}
 
       (and (= t "con") (zero? nodes-length))
       @{:id (get node "id")}
 
       # Any other node type
-      @[]
-      )))
+      @[])))
 
 (defn- filter-outputs [containers]
   (filter (fn[c] (let [output (-> c keys first)]
                    (not= output "__i3"))) containers))
-
 
 (defn save!
   "Parses and saves layout to file."
@@ -93,10 +91,10 @@
 
 (defn attach-container-to-workspace
   [workspace-name container-id]
-  (let [p (os/spawn @("i3-msg" (string "[con_id=" container-id "]"
-                                       " move workspace \""
-                                       workspace-name
-                                       "\""))
+  (let [workspace-name (string/replace-all "\"" "'" workspace-name)
+        p (os/spawn @("i3-msg" (string "[con_id=" container-id "]"
+                                       " move workspace "
+                                       "\"" workspace-name "\""))
                     :p)]
     (:wait p)))
 
@@ -114,8 +112,7 @@
            (map (fn [{"id" container-id}]
                   (do (attach-container-to-workspace (get workspace "name") container-id)
                     (move-workspace-to-output (get workspace "name") output)))
-                (get workspace "containers"))
-           ) workspaces)))
+                (get workspace "containers"))) workspaces)))
 
 (defn load!
   "Loades and parses a layout from file."

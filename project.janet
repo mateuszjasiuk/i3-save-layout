@@ -9,9 +9,9 @@
   # :source is an array or tuple that can contain
   # source files and directories that will be installed.
   # Often will just be a single file or single directory.
-  :source ["init.janet"])
+  :source ["main.janet"])
 
 (declare-executable
- :name "init-exec"
- :entry "init.janet"
+ :name "i3-save-layout"
+ :entry "main.janet"
  :install false)

@@ -3,7 +3,6 @@
 i3 save layout
 
 ### TODO:
-- rename init.janet
 - cleanup and fn docs
 - optimize i3-msg run so we get rid off "[{"success":false,"error":"No output matched"}]" errors
 - error handling
