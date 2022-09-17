@@ -102,7 +102,7 @@
                     :p)]
     (:wait p)))
 
-(defn move-workspace-to-output
+(defn- move-workspace-to-output
   "Move workspace(by name) to the specific output."
   [workspace-name output]
   (let [p (os/spawn @("i3-msg" (string "[workspace=" "\"" workspace-name "\"" "]"
@@ -111,15 +111,16 @@
                     :p)]
     (:wait p)))
 
-(defn load-containers
+(defn- load-containers
   "Load containers, by moving them to workspace and attaching workspace to the output."
   [entry]
   (let [[output workspaces] (kvs entry)]
-    (map (fn [workspace]
-           (map (fn [{"id" container-id}]
-                  (do (attach-container-to-workspace (get workspace "name") container-id)
-                    (move-workspace-to-output (get workspace "name") output)))
-                (get workspace "containers"))) workspaces)))
+    (map (fn [{"containers" containers "name" name}]
+           (do (map (fn [{"id" container-id}]
+                      (attach-container-to-workspace name container-id))
+                    containers)
+             (move-workspace-to-output name output)))
+         workspaces)))
 
 (defn load!
   "Loades and parses a layout from file."
