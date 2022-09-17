@@ -75,9 +75,12 @@
       # Any other node type
       @[])))
 
-(defn- filter-outputs [containers]
+(defn- filter-outputs
+  "We ignore __i3 output."
+  [containers]
   (filter (fn[c] (let [output (-> c keys first)]
-                   (not= output "__i3"))) containers))
+                   (not= output "__i3")))
+          containers))
 
 (defn save!
   "Parses and saves layout to file."
@@ -90,6 +93,7 @@
        (save-layout! "/tmp/i3-layout")))
 
 (defn attach-container-to-workspace
+  "Attach container(by id) to a specific workspace(by name)."
   [workspace-name container-id]
   (let [workspace-name (string/replace-all "\"" "'" workspace-name)
         p (os/spawn @("i3-msg" (string "[con_id=" container-id "]"
@@ -99,6 +103,7 @@
     (:wait p)))
 
 (defn move-workspace-to-output
+  "Move workspace(by name) to the specific output."
   [workspace-name output]
   (let [p (os/spawn @("i3-msg" (string "[workspace=" "\"" workspace-name "\"" "]"
                                        " move workspace to output "
@@ -106,7 +111,9 @@
                     :p)]
     (:wait p)))
 
-(defn attach-containers [entry]
+(defn load-containers
+  "Load containers, by moving them to workspace and attaching workspace to the output."
+  [entry]
   (let [[output workspaces] (kvs entry)]
     (map (fn [workspace]
            (map (fn [{"id" container-id}]
@@ -119,7 +126,7 @@
   [] 
   (->> (read-from-file! "/tmp/i3-layout")
        (json/decode)
-       (map attach-containers)))
+       (map load-containers)))
 
 (defn main [& args]
     (let [[_ action] (dyn :args)]
