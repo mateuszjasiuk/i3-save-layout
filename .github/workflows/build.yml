@@ -1,0 +1,53 @@
+name: build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: checkout project
+      uses: actions/checkout@v2
+    - name: find latest version of janet
+      uses: oprypin/find-latest-tag@v1
+      with:
+        repository: janet-lang/janet
+        releases_only: true
+        prefix: 'v'
+      id: janet-ver
+    - name: clone jpm
+      uses: actions/checkout@v2
+      with:
+        repository: janet-lang/jpm
+        path: jpm
+    - name: download janet
+      run: curl -LO https://github.com/janet-lang/janet/releases/download/${{ steps.janet-ver.outputs.tag }}/janet-${{ steps.janet-ver.outputs.tag }}-linux-x64.tar.gz
+    - name: extract janet
+      run: tar -xvzf janet-${{ steps.janet-ver.outputs.tag }}-linux-x64.tar.gz
+    - name: add directory to path
+      run: echo "${GITHUB_WORKSPACE}/janet-${{ steps.janet-ver.outputs.tag }}-linux/bin" >> $GITHUB_PATH
+    - name: make modules directory
+      run: mkdir modules
+    - name: set JANET_PATH
+      run: echo "JANET_PATH=${GITHUB_WORKSPACE}/janet-${{ steps.janet-ver.outputs.tag }}-linux" >> $GITHUB_ENV
+    - name: set JANET_LIBPATH
+      run: echo "JANET_LIBPATH=${GITHUB_WORKSPACE}/janet-${{ steps.janet-ver.outputs.tag }}-linux/lib" >> $GITHUB_ENV
+    - name: set JANET_HEADERPATH
+      run: echo "JANET_HEADERPATH=${GITHUB_WORKSPACE}/janet-${{ steps.janet-ver.outputs.tag }}-linux/include" >> $GITHUB_ENV
+    - name: symlink janet
+      run: ln -s "${GITHUB_WORKSPACE}/janet-${{ steps.janet-ver.outputs.tag }}-linux/bin/janet" "/usr/local/bin"
+    - name: install jpm
+      run: |
+        cd jpm
+        sudo janet bootstrap.janet
+        cd ..
+    - name: install dependencies
+      run: jpm deps
+    - name: run tests
+      run: jpm test
