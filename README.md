@@ -11,9 +11,21 @@ After you build an executable, run:
 ### Requirements
 You need to install [janet](https://janet-lang.org/) and [jpm](https://janet-lang.org/docs/jpm.html).
 
+### To install dependencies
+```
+sudo jpm deps
+```
+### To install
+```
+sudo jpm install
+```
 ### To run
 ```
 janet main.janet (--load/--save)
+```
+### To run tests
+```
+jpm test
 ```
 ### To build
 ```
@@ -22,3 +34,4 @@ jpm build
 
 ### TODO:
 - [unit tests](https://github.com/janet-lang/janet/discussions/846)
+- github actions
